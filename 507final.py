@@ -7,7 +7,11 @@ from requests_oauthlib import OAuth1
 import sys
 import sqlite3
 import secret_data
+import plotly
+import plotly.plotly as py
+import plotly.graph_objs as go
 
+#put API keys in secret file later lol
 client_id='4a1b1a7008b94b70a7f9d8ef4b3569b6'
 client_secret='446930c0645144f386a40dd71d8130d0'
 DBNAME = 'music.db'
@@ -27,16 +31,21 @@ credentials = oauth2.SpotifyClientCredentials(client_id=client_id,client_secret=
 token = credentials.get_access_token()
 spotify = spotipy.Spotify(auth=token)
 
-id_list = []
+
+#NOTE: Maybe get more tracks for each artist by using last.fm and then creating a Song object, updating DB, etc. with that
+#Use last.fm to get a list
+#Use Spotify Search to get IDs using names from the list
+#Use Spotify get track to get information
 
 class Artist:
-	def __init__(self, id=0, name="None", genre="None", top_songs=[], followers=0, json=None):
+	def __init__(self, id=0, name="None", genre="None", top_songs=[], followers=0, popularity=0, json=None):
 		if json is None:
 			self.id = id
 			self.name = name
 			self.genre = genre
 			self.top_songs = top_songs
 			self.followers = followers
+			self.popularity = popularity
 		else:
 			self.process_json_dict(json)
 
@@ -44,6 +53,7 @@ class Artist:
 		self.id = json['id']
 		self.name = json['name']
 		self.genre = json['genres'][0]
+		self.popularity = json['popularity'] 
 		self.top_songs = self.get_top_tracks(self.id)
 		self.get_twitter_data(self.name)
 
@@ -148,7 +158,7 @@ def create_artists():
 		cur.execute(statement)
 		statement = '''CREATE TABLE 'Artists' 
         ('Id' TEXT PRIMARY KEY, 'Name' Text, 'PrimaryGenre' TEXT, 'TopSong1Id' TEXT,
-            'TopSong2Id' TEXT, 'TopSong3Id' TEXT, 'TopSong4Id' TEXT, 'TopSong5Id' TEXT, 'Followers' INT);'''
+            'TopSong2Id' TEXT, 'TopSong3Id' TEXT, 'TopSong4Id' TEXT, 'TopSong5Id' TEXT, 'Popularity' INT, 'TwitterFollowers' INT);'''
 		cur.execute(statement)
 
 		conn.commit()
@@ -173,8 +183,8 @@ def update_artists(artist):
 		else:
 			song_names.append(song.name)
 	
-	statement = "INSERT INTO 'Artists' (Id, Name, PrimaryGenre, TopSong1Id, TopSong2Id, TopSong3Id, TopSong4Id, TopSong5Id, Followers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	cur.execute(statement, (artist.id, artist.name, artist.genre, song_names[0], song_names[1], song_names[2], song_names[3], song_names[4], artist.followers))
+	statement = "INSERT INTO 'Artists' (Id, Name, PrimaryGenre, TopSong1Id, TopSong2Id, TopSong3Id, TopSong4Id, TopSong5Id, Popularity, TwitterFollowers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	cur.execute(statement, (artist.id, artist.name, artist.genre, song_names[0], song_names[1], song_names[2], song_names[3], song_names[4], artist.popularity, artist.followers))
 
 	conn.commit()
 	conn.close()
@@ -384,21 +394,45 @@ def make_request_using_cache_last_fm(baseurl, params):
 
 		return CACHE_DICTION_LAST_FM[unique_ident]
 
-def search_for_artist(name,id_list):
+def search_for_artist(name):
+	try:
+		conn = sqlite3.connect(DBNAME)
+        #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
+		conn.text_factory = str
+		cur = conn.cursor()
+	except:
+		print("Could not connect to database.")
+	
 	artist = make_request_using_cache_spotify(name)
 	artist_object = Artist(json=artist)
+
+	statement = '''SELECT Id from ARTISTS'''
+	cur.execute(statement)
+
+	id_list = []
+	lst = cur.fetchall()
+	for row in lst:
+		id_list.append(row[0])
 
 	if artist_object.id != 0 and artist_object.id not in id_list:
 		update_artists(artist_object)
 		connect_songs_artists(artist_object)
 
+	conn.commit()
+	conn.close()
+
 	return artist_object
 
 def get_related_artists(id):
+	#Do I need to cache this related artists search??? Maybe?
 	related = spotify.artist_related_artists(id)
+	related_artists = []
 	for artist in related['artists']:
 		artist_dict = artist
-		search_for_artist(artist['name'])
+		related_artist = search_for_artist(artist['name'])
+		related_artists.append(related_artist)
+
+	return related_artists
 
 def query_top_songs(name):
 	try:
@@ -411,16 +445,29 @@ def query_top_songs(name):
 
 	artist = search_for_artist(name)
 
+	popularity_dict = {}
+	listeners_dict = {}
+	playcount_dict = {}
+	name_list = []
+
 	statement = '''SELECT Songs.Name, Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ?'''
 	cur.execute(statement, (artist.id,))
 
 	lst = cur.fetchall()
 
+	for row in lst:
+		popularity_dict[row[0]] = row[1]
+		listeners_dict[row[0]] = (row[2] / 1000)
+		playcount_dict[row[0]] = (row[3] / 1000)
+		name_list.append(row[0])
+
+	graph_song_popularity(popularity_dict, listeners_dict, playcount_dict, name_list)
+
 	conn.commit()
 	conn.close()
 
-def query_release_dates(name):
+def query_release_dates(name, year1, year2):
 	try:
 		conn = sqlite3.connect(DBNAME)
         #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
@@ -431,13 +478,41 @@ def query_release_dates(name):
 
 	artist = search_for_artist(name)
 
-	year = "2017%"
+	#See if you can make this work with the last.fm stuff too
 
-	statement = '''SELECT Songs.Name, Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
+	date_dict = {}
+	year1_list = []
+	year2_list = []
+	year1_total_popularity = 0
+	year2_total_popularity = 0
+
+	statement = '''SELECT Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? AND Songs.ReleaseDate LIKE ?'''
-	cur.execute(statement, (artist.id, year))
+	cur.execute(statement, (artist.id, "%" + str(year1) + "%"))
 
 	lst = cur.fetchall()
+
+	for row in lst:
+		popularity = row[0]
+		year1_list.append(popularity)
+		year1_total_popularity += popularity
+
+
+	statement = '''SELECT Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
+	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? AND Songs.ReleaseDate LIKE ?'''
+	cur.execute(statement, (artist.id, "%" + str(year2) + "%"))
+
+	lst = cur.fetchall()
+
+	for row in lst:
+		popularity = row[0]
+		year2_list.append(popularity)
+		year2_total_popularity += popularity
+
+	date_dict[year1] = year1_total_popularity / len(year1_list)
+	date_dict[year2] = year2_total_popularity / len(year2_list)
+
+	graph_year_popularity(date_dict, year1, year2)
 
 	conn.commit()
 	conn.close()
@@ -453,8 +528,6 @@ def query_tags(name):
 
 	artist = search_for_artist(name)
 
-	year = "2017%"
-
 	#repeat for all tags
 	statement = '''SELECT Songs.Name, Songs.Tag1 FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? GROUP BY Tag1'''
@@ -465,6 +538,139 @@ def query_tags(name):
 	conn.commit()
 	conn.close()
 
+def query_related_artists(name):
+	try:
+		conn = sqlite3.connect(DBNAME)
+        #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
+		conn.text_factory = str
+		cur = conn.cursor()
+	except:
+		print("Could not connect to database.")
+
+	artist = search_for_artist(name)
+
+	related_artists = get_related_artists(artist.id)
+
+	artist_dict = {}
+
+	for artist in related_artists:
+		statement = '''SELECT Artists.Name, Artists.Popularity FROM Artists WHERE Artists.Id = ?'''
+		cur.execute(statement, (artist.id,))
+
+		try:
+			lst = cur.fetchone()
+			#for row in lst:
+				#print(row[0])
+			artist_dict[lst[0]] = lst[1]
+		except:
+			continue
+
+	for artist in artist_dict.keys():
+		print(artist, artist_dict[artist])
+
+	conn.commit()
+	conn.close()
+
+def graph_song_popularity(pop_dict, list_dict, play_dict, name_list):	
+	'''trace1 = go.Bar(
+    x=[name_list[0], name_list[1], name_list[2], name_list[3], name_list[4]],
+    y=[pop_dict[name_list[0]], pop_dict[name_list[1]], pop_dict[name_list[2]], pop_dict[name_list[3]], pop_dict[name_list[4]]],
+    name='Spotify Popularity'
+	)
+
+	trace2 = go.Bar(
+    x=[name_list[0], name_list[1], name_list[2], name_list[3], name_list[4]],
+    y=[list_dict[name_list[0]], list_dict[name_list[1]], list_dict[name_list[2]], list_dict[name_list[3]], list_dict[name_list[4]]],
+    name='last.fm Listeners (in thousands)'
+	)
+
+	trace3 = go.Bar(
+    x=[name_list[0], name_list[1], name_list[2], name_list[3], name_list[4]],
+    y=[play_dict[name_list[0]], play_dict[name_list[1]], play_dict[name_list[2]], play_dict[name_list[3]], play_dict[name_list[4]]],
+    name='last.fm Playcount (in thousands)'
+	)
+
+	data = [trace1, trace2, trace3]
+	layout = go.Layout(
+    barmode='group'
+	)
+
+	fig = go.Figure(data=data, layout=layout)
+	py.plot(fig, filename='grouped-bar')'''
+
+	trace1 = go.Bar(
+    x=['Spotify Popularity', 'last.fm Listeners (in thousands)', 'last.fm Playcount (in thousands)'],
+    y=[pop_dict[name_list[0]], list_dict[name_list[0]], play_dict[name_list[0]]],
+    name = name_list[0]
+	)
+
+	trace2 = go.Bar(
+    x=['Spotify Popularity', 'last.fm Listeners (in thousands)', 'last.fm Playcount (in thousands)'],
+    y=[pop_dict[name_list[1]], list_dict[name_list[1]], play_dict[name_list[1]]],
+    name = name_list[1]
+	)
+
+	trace3 = go.Bar(
+    x=['Spotify Popularity', 'last.fm Listeners (in thousands)', 'last.fm Playcount (in thousands)'],
+    y=[pop_dict[name_list[2]], list_dict[name_list[2]], play_dict[name_list[2]]],
+    name = name_list[2]
+	)
+
+	trace4 = go.Bar(
+    x=['Spotify Popularity', 'last.fm Listeners (in thousands)', 'last.fm Playcount (in thousands)'],
+    y=[pop_dict[name_list[3]], list_dict[name_list[3]], play_dict[name_list[3]]],
+    name = name_list[3]
+	)
+
+	trace5 = go.Bar(
+    x=['Spotify Popularity', 'last.fm Listeners (in thousands)', 'last.fm Playcount (in thousands)'],
+    y=[pop_dict[name_list[4]], list_dict[name_list[4]], play_dict[name_list[4]]],
+    name = name_list[4]
+	)
+
+	data = [trace1, trace2, trace3, trace4, trace5]
+	layout = go.Layout(
+		barmode='group',
+    	autosize=False,
+    	width=700,
+    	height=700,
+    	margin=go.layout.Margin(
+        l=50,
+        r=50,
+        b=150,
+        t=100,
+        pad=4),
+    )
+
+	fig = go.Figure(data=data, layout=layout)
+	py.plot(fig, filename='grouped-bar')
+
+def graph_year_popularity(date_dict, year1, year2):
+
+	year1_string = "Year: " + str(year1)
+	year2_string = "Year: " + str(year2)
+	trace1 = go.Bar(
+            x=[year1_string, year2_string],
+            y=[date_dict[year1], date_dict[year2]]
+        )
+
+	data = [trace1]
+
+	layout = go.Layout(
+    	autosize=False,
+    	width=700,
+    	height=700,
+    	margin=go.layout.Margin(
+        l=50,
+        r=50,
+        b=150,
+        t=100,
+        pad=4),
+    )
+
+	fig = go.Figure(data=data, layout=layout)
+	py.plot(fig, filename='popularity')
+
 #From https://github.com/plamere/spotipy/issues/194
 '''credentials = oauth2.SpotifyClientCredentials(client_id=client_id,client_secret=client_secret)
 token = credentials.get_access_token()
@@ -474,71 +680,12 @@ results = spotify.search(q='artist:' + 'Andrew McMahon', type='artist')
 artist = results['artists']['items'][0]'''
 #print(artist)
 
-create_artists()
-create_songs()
+#create_artists()
+#create_songs()
 
-#query_release_dates("Andrew McMahon in the Wilderness")
-artist = search_for_artist("The Beatles",id_list)
-id_list.append(artist.id)
+query_release_dates("Andrew McMahon in the Wilderness", 2017, 2018)
 
-'''artist = make_request_using_cache_spotify("Andrew McMahon")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-artist = make_request_using_cache_spotify("The 1975")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-artist = make_request_using_cache_spotify("The Chainsmokers")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-artist = make_request_using_cache_spotify("Fall Out Boy")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-artist = make_request_using_cache_spotify("No Rome")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-artist = make_request_using_cache_spotify("Walk The Moon")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-artist = make_request_using_cache_spotify("Grouplove")
-artist_object = Artist(json=artist)
-
-update_artists(artist_object)
-connect_songs_artists(artist_object)
-
-#related = spotify.artist_related_artists(artist_object.id)
-
-#get_twitter_data(artist_object)
-#print(artist_object.followers)'''
-
-'''url = 'https://api.twitter.com/1.1/account/verify_credentials.json'
-auth = OAuth1(consumer_key, consumer_secret, access_token, access_secret)
-requests.get(url, auth=auth)'''
-
+#query_top_songs("The Chainsmokers")
 
 #results = spotify.artist_top_tracks(artist)
 #print(results['tracks'][3]['album']['release_date'])
-
-
-
-'''resp = requests.get(base_url, params)
-result = json.loads(resp.text)
-result_tag = result['track']['toptags'] 
-print(result_tag)'''
