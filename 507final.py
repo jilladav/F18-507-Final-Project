@@ -60,6 +60,7 @@ class Artist:
 	def get_top_tracks(self, id):
 		results = make_request_using_cache_spotify_songs(id)
 		songs = []
+		song_names = []
 		if len(results) >= 5:
 			for x in range(0,5):
 				json = results[x]
@@ -82,6 +83,18 @@ class Artist:
 				songs.append(song)
 				update_songs(song)
 
+		for song in songs:
+			song_names.append(song.name)
+
+		more = self.get_last_fm_songs(self.name)
+		more_songs = more['toptracks']['track']
+
+		for json in more_songs:
+			if json['name'] not in song_names:
+				song = Song(json=json)
+				songs.append(song)
+				update_songs(song)
+
 		return songs
 
 	def get_twitter_data(self,name):
@@ -95,6 +108,18 @@ class Artist:
 		#f.close()
 		#result = json.loads(result.text)
 		self.followers = result[0]["followers_count"]
+
+	def get_last_fm_songs(self,name):
+		base_url = 'http://ws.audioscrobbler.com/2.0/'
+		params = {}
+		params['artist'] = name
+		params['limit'] = 100
+		params['method'] = "artist.getTopTracks"
+		params['format'] = "json"
+		params['api_key'] = last_fm_token
+		result = make_request_using_cache_last_fm(base_url, params)
+
+		return(result)
 
 	def __str__ (self):
 		return self.name
@@ -114,15 +139,32 @@ class Song:
 			self.process_json_dict(json)
 
 	def process_json_dict(self,json):
-		self.id = json['id']
-		self.name = json['name']
-		self.artist = json['artists'][0]['name']
-		self.popularity = json['popularity']
-		self.release = json['album']['release_date']
-		self.tags = []
-		self.listeners = 0
-		self.playcount = 0
-		self.get_last_fm_data(name=self.name,artist=self.artist)
+		try:
+			self.name = json['name']
+			self.id = json['id']
+			self.artist = json['artists'][0]['name']
+			self.popularity = json['popularity']
+			self.release = json['album']['release_date']
+			self.tags = []
+			self.listeners = 0
+			self.playcount = 0
+			self.get_last_fm_data(name=self.name,artist=self.artist)
+		except:
+			try:
+				#TODO: Add this to cache
+				results = spotify.search(q='track:' + self.name, type='track')
+				json = results['tracks']['items'][0]
+				self.process_json_dict(json=json)
+			except:
+				self.name = json['name']
+				self.id = 0
+				self.artist = "Unknown"
+				self.tags = []
+				self.release = "Unknown"
+				self.popularity = 0
+				self.listeners = 0
+				self.playcount = 0
+				return
 
 	def get_last_fm_data(self,name,artist):
 		base_url = 'http://ws.audioscrobbler.com/2.0/'
@@ -225,7 +267,7 @@ def update_songs(song):
 def connect_songs_artists(artist):
 	conn = sqlite3.connect(DBNAME)
 	cur = conn.cursor()
-
+	
 	artist_id = cur.execute("SELECT id FROM 'Artists' WHERE Name=?", (artist.name,)).fetchone()[0]
 	statement = "UPDATE Songs SET ArtistId = ? WHERE ArtistId = ?"
 	cur.execute(statement,(artist_id, artist.name))
@@ -233,17 +275,20 @@ def connect_songs_artists(artist):
 	#I feel like there's a cleaner way to do this...
 	for song in artist.top_songs:
 		if song != None:
-			song_id = cur.execute("SELECT id FROM 'Songs' WHERE Name=?", (song.name,)).fetchone()[0]
-			statement = "UPDATE Artists SET TopSong1Id = ? WHERE TopSong1Id = ?"
-			cur.execute(statement,(song_id, song.name))
-			statement = "UPDATE Artists SET TopSong2Id = ? WHERE TopSong2Id = ?"
-			cur.execute(statement,(song_id, song.name))
-			statement = "UPDATE Artists SET TopSong3Id = ? WHERE TopSong3Id = ?"
-			cur.execute(statement,(song_id, song.name))
-			statement = "UPDATE Artists SET TopSong4Id = ? WHERE TopSong4Id = ?"
-			cur.execute(statement,(song_id, song.name))
-			statement = "UPDATE Artists SET TopSong5Id = ? WHERE TopSong5Id = ?"
-			cur.execute(statement,(song_id, song.name))
+			try:
+				song_id = cur.execute("SELECT id FROM 'Songs' WHERE Name=?", (song.name,)).fetchone()[0]
+				statement = "UPDATE Artists SET TopSong1Id = ? WHERE TopSong1Id = ?"
+				cur.execute(statement,(song_id, song.name))
+				statement = "UPDATE Artists SET TopSong2Id = ? WHERE TopSong2Id = ?"
+				cur.execute(statement,(song_id, song.name))
+				statement = "UPDATE Artists SET TopSong3Id = ? WHERE TopSong3Id = ?"
+				cur.execute(statement,(song_id, song.name))
+				statement = "UPDATE Artists SET TopSong4Id = ? WHERE TopSong4Id = ?"
+				cur.execute(statement,(song_id, song.name))
+				statement = "UPDATE Artists SET TopSong5Id = ? WHERE TopSong5Id = ?"
+				cur.execute(statement,(song_id, song.name))
+			except:
+				continue
 
 	conn.commit()
 	conn.close()
@@ -406,17 +451,17 @@ def search_for_artist(name):
 	artist = make_request_using_cache_spotify(name)
 	artist_object = Artist(json=artist)
 
-	statement = '''SELECT Id from ARTISTS'''
+	'''statement = '''SELECT Id from ARTISTS'''
 	cur.execute(statement)
 
 	id_list = []
 	lst = cur.fetchall()
 	for row in lst:
-		id_list.append(row[0])
+		id_list.append(row[0])'''
 
-	if artist_object.id != 0 and artist_object.id not in id_list:
-		update_artists(artist_object)
-		connect_songs_artists(artist_object)
+	#if artist_object.id != 0 and artist_object.id not in id_list:
+	update_artists(artist_object)
+	connect_songs_artists(artist_object)
 
 	conn.commit()
 	conn.close()
@@ -1127,6 +1172,18 @@ def process_command(command):
 				metric = word.split('=')[1]
 		query_top_songs(name,metric)
 
+def get_top_artists():
+	base_url = 'http://ws.audioscrobbler.com/2.0/'
+	params = {}
+	params['limit'] = 2
+	params['method'] = "chart.getTopArtists"
+	params['format'] = "json"
+	params['api_key'] = last_fm_token
+	result = make_request_using_cache_last_fm(base_url,params)	
+
+	for artist in result['artists']['artist']:
+		search_for_artist(artist['name'])
+
 def interactive_prompt():
 	response = ''
 	while response != 'exit':
@@ -1137,8 +1194,11 @@ def interactive_prompt():
 			#except:
 				#print("Unable to process command.")
 				#continue
-#create_artists()
-#create_songs()
 
-if __name__=="__main__":
-    interactive_prompt()
+create_artists()
+create_songs()
+
+get_top_artists()
+
+#if __name__=="__main__":
+    #interactive_prompt()
