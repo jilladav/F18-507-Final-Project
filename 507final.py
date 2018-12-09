@@ -11,7 +11,6 @@ import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
 
-#put API keys in secret file later lol
 client_id= secret_data.client_id
 client_secret= secret_data.client_secret
 DBNAME = 'music.db'
@@ -32,10 +31,8 @@ token = credentials.get_access_token()
 spotify = spotipy.Spotify(auth=token)
 
 
-#NOTE: Maybe get more tracks for each artist by using last.fm and then creating a Song object, updating DB, etc. with that
-#Use last.fm to get a list
-#Use Spotify Search to get IDs using names from the list
-#Use Spotify get track to get information
+#Comment out all the update_songs and update_artists and create table functions once you have artists loaded in
+#Figure out a way to do this without having to totally re-create the artists every time to save time - probably something with the query
 
 class Artist:
 	def __init__(self, id=0, name="None", genre="None", top_songs=[], followers=0, popularity=0, json=None):
@@ -66,13 +63,13 @@ class Artist:
 				json = results[x]
 				song = Song(json=json)
 				songs.append(song)
-				update_songs(song)
+				#update_songs(song)
 		else:
 			for x in range(0,len(results)):
 				json = results[x]
 				song = Song(json=json)
 				songs.append(song)
-				update_songs(song)
+				#update_songs(song)
 		if len(songs) < 5:
 			x = len(songs)
 			for item in range(x,5):
@@ -81,7 +78,7 @@ class Artist:
 		for json in results[5:]:
 				song = Song(json=json)
 				songs.append(song)
-				update_songs(song)
+				#update_songs(song)
 
 		for song in songs:
 			song_names.append(song.name)
@@ -93,7 +90,7 @@ class Artist:
 			if json['name'] not in song_names:
 				song = Song(json=json)
 				songs.append(song)
-				update_songs(song)
+				#update_songs(song)
 
 		return songs
 
@@ -154,7 +151,10 @@ class Song:
 				#TODO: Add this to cache
 				results = spotify.search(q='track:' + self.name, type='track')
 				json = results['tracks']['items'][0]
-				self.process_json_dict(json=json)
+				try:
+					self.process_json_dict(json=json)
+				except:
+					return
 			except:
 				self.name = json['name']
 				self.id = 0
@@ -167,21 +167,23 @@ class Song:
 				return
 
 	def get_last_fm_data(self,name,artist):
-		base_url = 'http://ws.audioscrobbler.com/2.0/'
-		params = {}
-		params['artist'] = artist
-		params['track'] = name
-		params['method'] = "track.getInfo"
-		params['format'] = "json"
-		params['api_key'] = last_fm_token
-		result = make_request_using_cache_last_fm(base_url, params)
-		self.listeners = result['track']['listeners']
-		self.playcount = result['track']['playcount']
-		tags = result['track']['toptags']['tag']
-		tag_list = []
-		for tag in tags:
-			self.tags.append(tag['name'])
-
+		try:
+			base_url = 'http://ws.audioscrobbler.com/2.0/'
+			params = {}
+			params['artist'] = artist
+			params['track'] = name
+			params['method'] = "track.getInfo"
+			params['format'] = "json"
+			params['api_key'] = last_fm_token
+			result = make_request_using_cache_last_fm(base_url, params)
+			self.listeners = result['track']['listeners']
+			self.playcount = result['track']['playcount']
+			tags = result['track']['toptags']['tag']
+			tag_list = []
+			for tag in tags:
+				self.tags.append(tag['name'])
+		except:
+			return
 
 	def __str__ (self):
 		return self.name
@@ -225,7 +227,7 @@ def update_artists(artist):
 		else:
 			song_names.append(song.name)
 	
-	statement = "INSERT INTO 'Artists' (Id, Name, PrimaryGenre, TopSong1Id, TopSong2Id, TopSong3Id, TopSong4Id, TopSong5Id, Popularity, TwitterFollowers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	statement = '''INSERT INTO 'Artists' (Id, Name, PrimaryGenre, TopSong1Id, TopSong2Id, TopSong3Id, TopSong4Id, TopSong5Id, Popularity, TwitterFollowers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
 	cur.execute(statement, (artist.id, artist.name, artist.genre, song_names[0], song_names[1], song_names[2], song_names[3], song_names[4], artist.popularity, artist.followers))
 
 	conn.commit()
@@ -316,11 +318,11 @@ def make_request_using_cache_spotify(name):
 	unique_ident = name
 
 	if unique_ident in CACHE_DICTION_SPOTIFY: 
-		print("Getting cached data...")
+		#print("Getting cached data...")
 		return CACHE_DICTION_SPOTIFY[unique_ident]
 
 	else: 
-		print("Making a request for new data...")
+		#print("Making a request for new data...")
 
 		'''credentials = oauth2.SpotifyClientCredentials(client_id=client_id,client_secret=client_secret)
 		token = credentials.get_access_token()
@@ -352,11 +354,11 @@ def make_request_using_cache_spotify_songs(id):
 	unique_ident = id + "songs"
 
 	if unique_ident in CACHE_DICTION_SPOTIFY: 
-		print("Getting cached data...")
+		#print("Getting cached data...")
 		return CACHE_DICTION_SPOTIFY[unique_ident]
 
 	else: 
-		print("Making a request for new data...")
+		#print("Making a request for new data...")
 		results = spotify.artist_top_tracks(id)
 		#resp = requests.get(baseurl, params, auth=auth) 
 		try:
@@ -393,11 +395,11 @@ def make_request_using_cache_twitter(baseurl, params):
 	unique_ident = params_unique_combination(baseurl,params)
 
 	if unique_ident in CACHE_DICTION_TWITTER: 
-		print("Getting cached data...")
+		#print("Getting cached data...")
 		return CACHE_DICTION_TWITTER[unique_ident]
 
 	else: 
-		print("Making a request for new data...")
+		#print("Making a request for new data...")
 
 		resp = requests.get(baseurl, params, auth=auth) 
 		CACHE_DICTION_TWITTER[unique_ident] = json.loads(resp.text) 
@@ -424,11 +426,11 @@ def make_request_using_cache_last_fm(baseurl, params):
 	unique_ident = params_unique_combination(baseurl,params)
 	
 	if unique_ident in CACHE_DICTION_LAST_FM: 
-		print("Getting cached data...")
+		#print("Getting cached data...")
 		return CACHE_DICTION_LAST_FM[unique_ident]
 
 	else: 
-		print("Making a request for new data...")
+		#print("Making a request for new data...")
 
 		resp = requests.get(baseurl, params) 
 		CACHE_DICTION_LAST_FM[unique_ident] = json.loads(resp.text) 
@@ -440,31 +442,31 @@ def make_request_using_cache_last_fm(baseurl, params):
 		return CACHE_DICTION_LAST_FM[unique_ident]
 
 def search_for_artist(name):
-	try:
+	'''try:
 		conn = sqlite3.connect(DBNAME)
         #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
 		conn.text_factory = str
 		cur = conn.cursor()
 	except:
-		print("Could not connect to database.")
+		print("Could not connect to database.")'''
 	
 	artist = make_request_using_cache_spotify(name)
 	artist_object = Artist(json=artist)
 
-	'''statement = '''SELECT Id from ARTISTS'''
+	'''statement = "SELECT Id from ARTISTS"
 	cur.execute(statement)
 
 	id_list = []
 	lst = cur.fetchall()
 	for row in lst:
-		id_list.append(row[0])'''
+		id_list.append(row[0])
 
-	#if artist_object.id != 0 and artist_object.id not in id_list:
-	update_artists(artist_object)
-	connect_songs_artists(artist_object)
+	if artist_object.id != 0 and artist_object.id not in id_list:
+		update_artists(artist_object)
+		connect_songs_artists(artist_object)
 
 	conn.commit()
-	conn.close()
+	conn.close()'''
 
 	return artist_object
 
@@ -490,7 +492,13 @@ def query_top_songs(name, metric):
 
 	metric=metric
 
-	artist = search_for_artist(name)
+	#artist = search_for_artist(name)
+
+	statement = '''SELECT Artists.Id FROM Artists WHERE Artists.Name = ?'''
+	cur.execute(statement,(name,))
+
+	lst = cur.fetchone()
+	id = lst[0]
 
 	popularity_dict = {}
 	listeners_dict = {}
@@ -499,7 +507,7 @@ def query_top_songs(name, metric):
 
 	statement = '''SELECT Songs.Name, Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ?'''
-	cur.execute(statement, (artist.id,))
+	cur.execute(statement, (id,))
 
 	lst = cur.fetchall()
 
@@ -523,9 +531,13 @@ def query_release_dates(name, year1, year2):
 	except:
 		print("Could not connect to database.")
 
-	artist = search_for_artist(name)
+	#artist = search_for_artist(name)
 
-	#See if you can make this work with the last.fm stuff too
+	statement = '''SELECT Artists.Id FROM Artists WHERE Artists.Name = ?'''
+	cur.execute(statement,(name,))
+
+	lst = cur.fetchone()
+	id = lst[0]
 
 	date_dict = {}
 	year1_list = []
@@ -535,7 +547,7 @@ def query_release_dates(name, year1, year2):
 
 	statement = '''SELECT Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? AND Songs.ReleaseDate LIKE ?'''
-	cur.execute(statement, (artist.id, "%" + str(year1) + "%"))
+	cur.execute(statement, (id, "%" + str(year1) + "%"))
 
 	lst = cur.fetchall()
 
@@ -547,7 +559,7 @@ def query_release_dates(name, year1, year2):
 
 	statement = '''SELECT Songs.Popularity, Songs.Listeners, Songs.PlayCount FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? AND Songs.ReleaseDate LIKE ?'''
-	cur.execute(statement, (artist.id, "%" + str(year2) + "%"))
+	cur.execute(statement, (id, "%" + str(year2) + "%"))
 
 	lst = cur.fetchall()
 
@@ -573,7 +585,13 @@ def query_tags(name):
 	except:
 		print("Could not connect to database.")
 
-	artist = search_for_artist(name)
+	#artist = search_for_artist(name)
+
+	statement = '''SELECT Artists.Id FROM Artists WHERE Artists.Name = ?'''
+	cur.execute(statement,(name,))
+
+	lst = cur.fetchone()
+	id = lst[0]
 
 	tag_dict = {}
 
@@ -642,6 +660,7 @@ def query_tags(name):
 	conn.commit()
 	conn.close()
 
+#Might change this so you just pick 2 artists
 def query_related_artists(name,metric):
 	try:
 		conn = sqlite3.connect(DBNAME)
@@ -1150,7 +1169,7 @@ def process_command(command):
 	if first == "years":
 		command = command_split[1:]
 		new_command = ' '.join(command)
-		command_split = new_command.split()
+		command_split = new_command.split(',')
 		for word in command_split:
 			if "artist" in word:
 				name = word.split('=')[1]
@@ -1164,25 +1183,30 @@ def process_command(command):
 	if first == "songs":
 		command = command_split[1:]
 		new_command = ' '.join(command)
-		command_split = new_command.split()
+		command_split = new_command.split(',')
 		for word in command_split:
 			if "artist" in word:
 				name = word.split('=')[1]
+				#name = command_split[1]
 			if "metric" in word:
 				metric = word.split('=')[1]
+				#metric = command_split[3]
 		query_top_songs(name,metric)
 
 def get_top_artists():
 	base_url = 'http://ws.audioscrobbler.com/2.0/'
 	params = {}
-	params['limit'] = 2
+	params['limit'] = 100
 	params['method'] = "chart.getTopArtists"
+	params['page'] = 2
 	params['format'] = "json"
 	params['api_key'] = last_fm_token
 	result = make_request_using_cache_last_fm(base_url,params)	
 
 	for artist in result['artists']['artist']:
 		search_for_artist(artist['name'])
+		print("Added " + artist['name'] + " to database")
+
 
 def interactive_prompt():
 	response = ''
@@ -1195,10 +1219,18 @@ def interactive_prompt():
 				#print("Unable to process command.")
 				#continue
 
-create_artists()
-create_songs()
+#create_artists()
+#create_songs()
 
-get_top_artists()
+#get_top_artists()
 
-#if __name__=="__main__":
-    #interactive_prompt()
+#search_for_artist("Andrew McMahon In The Wilderness")
+
+
+
+#for artist in artists:
+	#search_for_artist(artist)
+	#print("Loaded " + artist + " into database")
+
+if __name__=="__main__":
+    interactive_prompt()
