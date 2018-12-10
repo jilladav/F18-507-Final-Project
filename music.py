@@ -473,13 +473,15 @@ def search_for_artist(name):
 def get_related_artists(id):
 	#Do I need to cache this related artists search??? Maybe?
 	related = spotify.artist_related_artists(id)
-	related_artists = []
+	#related_artists = []
+	related_artists_ids = []
 	for artist in related['artists']:
 		artist_dict = artist
-		related_artist = search_for_artist(artist['name'])
-		related_artists.append(related_artist)
+		#related_artist = search_for_artist(artist['name'])
+		#related_artists.append(related_artist)
+		related_artists_ids.append(artist['id'])
 
-	return related_artists
+	return related_artists_ids
 
 def query_top_songs(name, metric):
 	try:
@@ -571,7 +573,7 @@ def query_release_dates(name, year1, year2):
 	date_dict[year1] = year1_total_popularity / len(year1_list)
 	date_dict[year2] = year2_total_popularity / len(year2_list)
 
-	graph_year_popularity(date_dict, year1, year2)
+	graph_year_popularity(date_dict, year1, year2, name)
 
 	conn.commit()
 	conn.close()
@@ -598,7 +600,7 @@ def query_tags(name):
 	#repeat for all tags
 	statement = '''SELECT COUNT(*), Songs.Tag1 FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? GROUP BY Tag1'''
-	cur.execute(statement, (artist.id,))
+	cur.execute(statement, (id,))
 
 	lst = cur.fetchall()
 	for row in lst:
@@ -607,7 +609,7 @@ def query_tags(name):
 
 	statement = '''SELECT COUNT(*), Songs.Tag2 FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? GROUP BY Tag2'''
-	cur.execute(statement, (artist.id,))
+	cur.execute(statement, (id,))
 
 	lst = cur.fetchall()
 	for row in lst:
@@ -619,7 +621,7 @@ def query_tags(name):
 
 	statement = '''SELECT COUNT(*), Songs.Tag3 FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? GROUP BY Tag3'''
-	cur.execute(statement, (artist.id,))
+	cur.execute(statement, (id,))
 
 	lst = cur.fetchall()
 	for row in lst:
@@ -632,7 +634,7 @@ def query_tags(name):
 
 	statement = '''SELECT COUNT(*), Songs.Tag4 FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? GROUP BY Tag4'''
-	cur.execute(statement, (artist.id,))
+	cur.execute(statement, (id,))
 
 	lst = cur.fetchall()
 	for row in lst:
@@ -645,7 +647,7 @@ def query_tags(name):
 
 	statement = '''SELECT COUNT(*), Songs.Tag5 FROM Songs JOIN Artists ON
 	Songs.ArtistId = Artists.Id WHERE Artists.Id = ? GROUP BY Tag5'''
-	cur.execute(statement, (artist.id,))
+	cur.execute(statement, (id,))
 
 	lst = cur.fetchall()
 	for row in lst:
@@ -655,12 +657,11 @@ def query_tags(name):
 		else:
 			tag_dict[row[1]] += row[0]
 
-	graph_tags(tag_dict)
+	graph_tags(tag_dict,name)
 
 	conn.commit()
 	conn.close()
 
-#Might change this so you just pick 2 artists
 def query_related_artists(name,metric):
 	try:
 		conn = sqlite3.connect(DBNAME)
@@ -672,60 +673,80 @@ def query_related_artists(name,metric):
 
 	metric=metric
 
-	artist_obj = search_for_artist(name)
-
-	related_artists = get_related_artists(artist_obj.id)
-
 	artist_pop_dict = {}
 	artist_follower_dict = {}
 	name_list = []
 
-	for artist in related_artists:
+	#artist_obj = search_for_artist(name)
+
+	statement = '''SELECT Artists.Id, Artists.Name, Artists.Popularity, Artists.TwitterFollowers FROM Artists WHERE Artists.Name = ?'''
+	cur.execute(statement,(name,))
+
+	lst = cur.fetchone()
+	id = lst[0]
+
+	name_list.append(lst[1])
+	artist_pop_dict[lst[1]] = lst[2]
+	artist_follower_dict[lst[1]] = lst[3]
+
+	related_artists = get_related_artists(id)
+
+	
+
+	for artist_id in related_artists:
 		statement = '''SELECT Artists.Name, Artists.Popularity, Artists.TwitterFollowers FROM Artists WHERE Artists.Id = ?'''
-		cur.execute(statement, (artist.id,))
+		cur.execute(statement, (artist_id,))
 
 		try:
 			lst = cur.fetchone()
 			#for row in lst:
 				#print(row[0])
 			artist_pop_dict[lst[0]] = lst[1]
-			artist_follower_dict[lst[0]] = lst[2] / 1000
+			artist_follower_dict[lst[0]] = lst[2]
 			name_list.append(lst[0])
 		except:
 			continue
 
-	graph_related_artists(artist_pop_dict,artist_follower_dict,artist_obj,name_list,metric)
+	graph_related_artists(artist_pop_dict,artist_follower_dict,name_list,metric)
 
 	conn.commit()
 	conn.close()
 
+def query_comparisons(name1,name2,metric):
+	try:
+		conn = sqlite3.connect(DBNAME)
+        #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
+		conn.text_factory = str
+		cur = conn.cursor()
+	except:
+		print("Could not connect to database.")
+
+	metric=metric
+
+	artist1_dict = {}
+	artist2_dict = {}
+
+	artist1_dict['name'] = name1
+	artist2_dict['name'] = name2
+
+	statement = '''SELECT Artists.Popularity, Artists.TwitterFollowers FROM Artists WHERE Artists.Name = ?'''
+	cur.execute(statement,(name1,))
+
+	lst = cur.fetchone()
+	artist1_dict['popularity'] = lst[0]
+	artist1_dict['followers'] = lst[1]
+
+	statement = '''SELECT Artists.Popularity, Artists.TwitterFollowers FROM Artists WHERE Artists.Name = ?'''
+	cur.execute(statement,(name2,))
+
+	lst = cur.fetchone()
+	artist2_dict['popularity'] = lst[0]
+	artist2_dict['followers'] = lst[1]
+
+	graph_comparison(artist1_dict,artist2_dict,metric)
+
+
 def graph_song_popularity(pop_dict, list_dict, play_dict, name_list, metric):	
-	'''trace1 = go.Bar(
-    x=[name_list[0], name_list[1], name_list[2], name_list[3], name_list[4]],
-    y=[pop_dict[name_list[0]], pop_dict[name_list[1]], pop_dict[name_list[2]], pop_dict[name_list[3]], pop_dict[name_list[4]]],
-    name='Spotify Popularity'
-	)
-
-	trace2 = go.Bar(
-    x=[name_list[0], name_list[1], name_list[2], name_list[3], name_list[4]],
-    y=[list_dict[name_list[0]], list_dict[name_list[1]], list_dict[name_list[2]], list_dict[name_list[3]], list_dict[name_list[4]]],
-    name='last.fm Listeners (in thousands)'
-	)
-
-	trace3 = go.Bar(
-    x=[name_list[0], name_list[1], name_list[2], name_list[3], name_list[4]],
-    y=[play_dict[name_list[0]], play_dict[name_list[1]], play_dict[name_list[2]], play_dict[name_list[3]], play_dict[name_list[4]]],
-    name='last.fm Playcount (in thousands)'
-	)
-
-	data = [trace1, trace2, trace3]
-	layout = go.Layout(
-    barmode='group'
-	)
-
-	fig = go.Figure(data=data, layout=layout)
-	py.plot(fig, filename='grouped-bar')'''
-
 	'''trace1 = go.Bar(
     x=['Spotify Popularity', 'last.fm Listeners (in thousands)', 'last.fm Playcount (in thousands)'],
     y=[pop_dict[name_list[0]], list_dict[name_list[0]], play_dict[name_list[0]]],
@@ -917,7 +938,9 @@ def graph_song_popularity(pop_dict, list_dict, play_dict, name_list, metric):
 		fig = go.Figure(data=data, layout=layout)
 		py.plot(fig, filename='grouped-bar')
 
-def graph_year_popularity(date_dict, year1, year2):
+
+#Add other metrics for this one???
+def graph_year_popularity(date_dict, year1, year2, name):
 
 	year1_string = "Year: " + str(year1)
 	year2_string = "Year: " + str(year2)
@@ -929,6 +952,7 @@ def graph_year_popularity(date_dict, year1, year2):
 	data = [trace1]
 
 	layout = go.Layout(
+		title = ('Popularity of songs from ' + str(year1) + " and " + str(year2) + " for " + name),
     	autosize=False,
     	width=700,
     	height=700,
@@ -941,9 +965,9 @@ def graph_year_popularity(date_dict, year1, year2):
     )
 
 	fig = go.Figure(data=data, layout=layout)
-	py.plot(fig, filename='popularity')
+	py.plot(fig, filename='song popularity')
 
-def graph_tags(tag_dict):
+def graph_tags(tag_dict,name):
 
 	#From https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
 	sorted_tag_dict = sorted(tag_dict.items(), key=lambda kv: kv[1], reverse=True)
@@ -956,6 +980,7 @@ def graph_tags(tag_dict):
 	data = [trace1]
 
 	layout = go.Layout(
+		title = ('Popular tags for ' + name),
     	autosize=False,
     	width=700,
     	height=700,
@@ -970,7 +995,8 @@ def graph_tags(tag_dict):
 	fig = go.Figure(data=data, layout=layout)
 	py.plot(fig, filename='tags')
 
-def graph_related_artists(artist_pop_dict, artist_follower_dict, artist, name_list, metric):
+#Gonna need to fix this lol
+def graph_related_artists(artist_pop_dict, artist_follower_dict, name_list, metric):
 	
 	'''trace1 = go.Bar(
             x=[artist.name, name_list[0], name_list[1], name_list[2], name_list[3]],
@@ -1045,32 +1071,32 @@ def graph_related_artists(artist_pop_dict, artist_follower_dict, artist, name_li
 	if metric == "spotify":
 		trace1 = go.Bar(
 	    x=['Spotify Popularity'],
-	    y=[artist.popularity],
-	    name = artist.name
-		)
-
-		trace2 = go.Bar(
-	    x=['Spotify Popularity'],
 	    y=[artist_pop_dict[name_list[0]]],
 	    name = name_list[0]
 		)
 
-		trace3 = go.Bar(
+		trace2 = go.Bar(
 	    x=['Spotify Popularity'],
 	    y=[artist_pop_dict[name_list[1]]],
 	    name = name_list[1]
 		)
 
-		trace4 = go.Bar(
+		trace3 = go.Bar(
 	    x=['Spotify Popularity'],
 	    y=[artist_pop_dict[name_list[2]]],
 	    name = name_list[2]
 		)
 
-		trace5 = go.Bar(
+		trace4 = go.Bar(
 	    x=['Spotify Popularity'],
 	    y=[artist_pop_dict[name_list[3]]],
 	    name = name_list[3]
+		)
+
+		trace5 = go.Bar(
+	    x=['Spotify Popularity'],
+	    y=[artist_pop_dict[name_list[4]]],
+	    name = name_list[4]
 		)
 
 
@@ -1094,33 +1120,33 @@ def graph_related_artists(artist_pop_dict, artist_follower_dict, artist, name_li
 	elif metric == "twitter":
 		
 		trace1 = go.Bar(
-	    x=['Twitter Followers (in thousands)'],
-	    y=[artist.followers / 1000],
-	    name = artist.name
-		)
-
-		trace2 = go.Bar(
-	    x=['Twitter Followers (in thousands)'],
+	    x=['Twitter Followers'],
 	    y=[artist_follower_dict[name_list[0]]],
 	    name = name_list[0]
 		)
 
-		trace3 = go.Bar(
-	    x=['Twitter Followers (in thousands)'],
+		trace2 = go.Bar(
+	    x=['Twitter Followers'],
 	    y=[artist_follower_dict[name_list[1]]],
 	    name = name_list[1]
 		)
 
-		trace4 = go.Bar(
-	    x=['Twitter Followers (in thousands)'],
+		trace3 = go.Bar(
+	    x=['Twitter Followers'],
 	    y=[artist_follower_dict[name_list[2]]],
 	    name = name_list[2]
 		)
 
-		trace5 = go.Bar(
-	    x=['Twitter Followers (in thousands)'],
+		trace4 = go.Bar(
+	    x=['Twitter Followers'],
 	    y=[artist_follower_dict[name_list[3]]],
 	    name = name_list[3]
+		)
+
+		trace5 = go.Bar(
+	    x=['Twitter Followers'],
+	    y=[artist_follower_dict[name_list[4]]],
+	    name = name_list[4]
 		)
 
 
@@ -1141,29 +1167,106 @@ def graph_related_artists(artist_pop_dict, artist_follower_dict, artist, name_li
 		fig = go.Figure(data=data, layout=layout)
 		py.plot(fig, filename='grouped-bar')
 
+def graph_comparison(artist1_dict,artist2_dict,metric):
+	if metric == "spotify":
+		trace1 = go.Bar(
+	    x=['Spotify Popularity'],
+	    y=[artist1_dict['popularity']],
+	    name = artist1_dict['name']
+		)
+
+		trace2 = go.Bar(
+	    x=['Spotify Popularity'],
+	    y=[artist2_dict['popularity']],
+	    name = artist2_dict['name']
+		)
+
+		data = [trace1, trace2]
+		layout = go.Layout(
+			barmode='group',
+	    	autosize=False,
+	    	width=700,
+	    	height=700,
+	    	margin=go.layout.Margin(
+	        l=50,
+	        r=50,
+	        b=150,
+	        t=100,
+	        pad=4),
+	    )
+
+		fig = go.Figure(data=data, layout=layout)
+		py.plot(fig, filename='grouped-bar')
+
+
+	elif metric == "twitter":
+		
+		trace1 = go.Bar(
+	    x=['Twitter Followers'],
+	    y=[artist1_dict['followers']],
+	    name = artist1_dict['name']
+		)
+
+		trace2 = go.Bar(
+	    x=['Twitter Followers'],
+	    y=[artist2_dict['followers']],
+	    name = artist2_dict['name']
+		)
+
+		data = [trace1, trace2]
+		layout = go.Layout(
+			barmode='group',
+	    	autosize=False,
+	    	width=700,
+	    	height=700,
+	    	margin=go.layout.Margin(
+	        l=50,
+	        r=50,
+	        b=150,
+	        t=100,
+	        pad=4),
+	    )
+
+		fig = go.Figure(data=data, layout=layout)
+		py.plot(fig, filename='grouped-bar')
+
 def process_command(command):
 	command_split = command.split()
 	first = command_split[0]
 	metric = "spotify"
-	#tags artistname=?
+	#tags artist=?
 	if first == "tags":
 		command = command_split[1:]
 		new_command = ' '.join(command)
 		name = new_command.split('=')[1]
 		query_tags(name)
 	#compare 
-		#related artistname=?
-	if first == "related":
-		command = command_split[1:]
-		new_command = ' '.join(command)
-		command_split = new_command.split()
-		for word in command_split:
-			if "artist" in word:
-				name = word.split('=')[1]
-			if "metric" in word:
-				metric = word.split('=')[1]
-		query_related_artists(name,metric)
-		#TODO: artistname1=? artistname2=? - don't have a function for this yet
+		#related artist=?
+	if first == "compare":
+		if command_split[1] != "related":
+			command = command_split[1:]
+			new_command = ' '.join(command)
+			command_split = new_command.split(',')
+			metric = "spotify"
+			for word in command_split:
+				if "artist1" in word:
+					name1 = word.split('=')[1]
+				if "artist2" in word:
+					name2 = word.split('=')[1]
+				if "metric" in word:
+					metric = word.split('=')[1]
+			query_comparisons(name1,name2,metric)
+		elif command_split[1] == "related":
+			command = command_split[2:]
+			new_command = ' '.join(command)
+			command_split = new_command.split(',')
+			for word in command_split:
+				if "artist" in word:
+					name = word.split('=')[1]
+				if "metric" in word:
+					metric = word.split('=')[1]
+			query_related_artists(name,metric)
+
 	#years artistname=? year1=? year2=?
 	#fix divide by zero error lol
 	if first == "years":
