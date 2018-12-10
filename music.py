@@ -32,7 +32,6 @@ spotify = spotipy.Spotify(auth=token)
 
 
 #Comment out all the update_songs and update_artists and create table functions once you have artists loaded in
-#Figure out a way to do this without having to totally re-create the artists every time to save time - probably something with the query
 
 class Artist:
 	def __init__(self, id=0, name="None", genre="None", top_songs=[], followers=0, popularity=0, json=None):
@@ -483,7 +482,7 @@ def get_related_artists(id):
 
 	return related_artists_ids
 
-def query_top_songs(name, metric):
+def query_top_songs(name, metric="spotify"):
 	try:
 		conn = sqlite3.connect(DBNAME)
         #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
@@ -519,10 +518,14 @@ def query_top_songs(name, metric):
 		playcount_dict[row[0]] = (row[3] / 1000)
 		name_list.append(row[0])
 
-	graph_song_popularity(popularity_dict, listeners_dict, playcount_dict, name_list, metric)
+
+	if __name__ == "__main__":	
+		graph_song_popularity(popularity_dict, listeners_dict, playcount_dict, name_list, metric)
 
 	conn.commit()
 	conn.close()
+
+	return name_list
 
 def query_release_dates(name, year1, year2):
 	try:
@@ -573,10 +576,14 @@ def query_release_dates(name, year1, year2):
 	date_dict[year1] = year1_total_popularity / len(year1_list)
 	date_dict[year2] = year2_total_popularity / len(year2_list)
 
-	graph_year_popularity(date_dict, year1, year2, name)
+
+	if __name__ == "__main__":
+		graph_year_popularity(date_dict, year1, year2, name)
 
 	conn.commit()
 	conn.close()
+
+	return date_dict
 
 def query_tags(name):
 	try:
@@ -657,12 +664,15 @@ def query_tags(name):
 		else:
 			tag_dict[row[1]] += row[0]
 
-	graph_tags(tag_dict,name)
+	if __name__ == "__main__":		
+		graph_tags(tag_dict,name)
 
 	conn.commit()
 	conn.close()
 
-def query_related_artists(name,metric):
+	return tag_dict
+
+def query_related_artists(name,metric="spotify"):
 	try:
 		conn = sqlite3.connect(DBNAME)
         #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
@@ -707,12 +717,15 @@ def query_related_artists(name,metric):
 		except:
 			continue
 
-	graph_related_artists(artist_pop_dict,artist_follower_dict,name_list,metric)
+	if __name__=="__main__":
+		graph_related_artists(artist_pop_dict,artist_follower_dict,name_list,metric)
 
 	conn.commit()
 	conn.close()
 
-def query_comparisons(name1,name2,metric):
+	return name_list
+
+def query_comparisons(name1,name2,metric="spotify"):
 	try:
 		conn = sqlite3.connect(DBNAME)
         #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
@@ -743,7 +756,10 @@ def query_comparisons(name1,name2,metric):
 	artist2_dict['popularity'] = lst[0]
 	artist2_dict['followers'] = lst[1]
 
-	graph_comparison(artist1_dict,artist2_dict,metric)
+	if __name__=="__main__":
+		graph_comparison(artist1_dict,artist2_dict,metric)
+
+	return (artist1_dict,artist2_dict)
 
 
 def graph_song_popularity(pop_dict, list_dict, play_dict, name_list, metric):	
@@ -1247,7 +1263,7 @@ def process_command(command):
 			command = command_split[1:]
 			new_command = ' '.join(command)
 			command_split = new_command.split(',')
-			metric = "spotify"
+			#metric = "spotify"
 			for word in command_split:
 				if "artist1" in word:
 					name1 = word.split('=')[1]
@@ -1282,7 +1298,6 @@ def process_command(command):
 				year2 = word.split('=')[1]
 		query_release_dates(name,year1,year2)
 	#songs artistname=?
-	#If I separate them do I still need to do it in thousands???
 	if first == "songs":
 		command = command_split[1:]
 		new_command = ' '.join(command)
@@ -1290,10 +1305,8 @@ def process_command(command):
 		for word in command_split:
 			if "artist" in word:
 				name = word.split('=')[1]
-				#name = command_split[1]
 			if "metric" in word:
 				metric = word.split('=')[1]
-				#metric = command_split[3]
 		query_top_songs(name,metric)
 
 def get_top_artists():
@@ -1316,11 +1329,11 @@ def interactive_prompt():
 	while response != 'exit':
 		response = input('Enter a command: ')
 		if response != 'exit':
-			#try:
-			process_command(response)
-			#except:
-				#print("Unable to process command.")
-				#continue
+			try:
+				process_command(response)
+			except:
+				print("Unable to process command: " + response)
+				continue
 
 #create_artists()
 #create_songs()
