@@ -49,7 +49,7 @@ There are four main user inputs.
 
 For each, any parameters that need to be specified (e.g. a specific artist or metric) must be separated by commas.
 
-###### tags
+#### tags
 
 Graphs the most popular tags for an artist.
 
@@ -60,7 +60,7 @@ tags artist=Adele
 
 
 
-###### compare
+#### compare
 
 Compare an artist to related artists or specify an artist to compare them to, and by what metric.
 
@@ -79,7 +79,7 @@ compare artist1=Adele,artist2=Katy Perry,metric=twitter
 
 
 
-###### years
+#### years
 
 Compare the popularity of an artist's songs from certain years and specify by what metric.
 
@@ -98,7 +98,7 @@ years artist=Adele,year1=2016,year2=2011,metric=listeners
 
 
 
-###### songs
+#### songs
 
 Compare the popularity of an artist's current top Spotify songs and specify by what metric.
 
