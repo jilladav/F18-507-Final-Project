@@ -137,3 +137,5 @@ A user can also remake tables and repopulate the database with:
 
 remake tables
 
+Please note that this can take a long time to do because of the large number of API calls that have to be made.
+
