@@ -11,7 +11,9 @@ Twitter API - https://developer.twitter.com/en/docs.html
 In order to run the program, you need to have a file called secret_data.py that includes the following:
 
 Consumer key, consumer access, access key, and access secret for the Twitter API.
+
 Client ID and client secret for the Spotify API.
+
 Token and secret for the last.fm API.
 
 ## Description
@@ -22,27 +24,41 @@ music.py processes user commands and updates the database as necessary in order 
 
 #### Processing functions:
 search_for_artist(): takes a name of an artist as input and creates an instance of the Artist class, which searches the Spotify API, last.fm API, and Twitter API for all of the necessary information and then updates the database
+
 query_top_songs(): gets the top 5 Spotify songs for an artist from the database
+
 query_release_dates(): gets the average popularity, playcount, and listeners for songs by an artist from the specified years
+
 query_tags: gets the top 5 tags from last.fm based on an artist's songs
+
 query_related_artists(): gets the related artists for an artist from the database
 
 #### Classes:
 Artist:
+
 Contains an artist's name, genre, top 5 songs, Twitter followers, and Spotify popularity
 
 class methods:
+
 process_json_dict(): processes a json dictionary to update information about the artist
+
 get_top_tracks(): gets the top tracks for an artist from Spotify and updates top tracks list
+
 get_twitter_data(): gets Twitter data about the aritst and updates followers
+
 get_last_fm_songs(): gets more songs by the artist from last.fm
-__str__(): returns the artist's name
+
+str(): returns the artist's name
 
 Song:
+
 Contains a song's name, artist, Spotify popularity, release date, top 5 tags from last.fm, last.fm listeners, and last.fm playcount
+
 process_json_dict(): processes a json dictionary to update information about the song
+
 get_last_fm_data(): gets last.fm data about the song and updates it
-__str__(): returns the song's name
+
+str(): returns the song's name
 
 #### User Guide
 There are four main user inputs.
