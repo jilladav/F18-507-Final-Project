@@ -36,7 +36,7 @@ class testDatabase(unittest.TestCase):
 		results = cur.execute(statement)
 		result_list = results.fetchall()
 		self.assertIn(('Katy Perry',), result_list)
-		self.assertGreater(len(result_list), 100)
+		self.assertGreater(len(result_list), 10)
 
 		statement = '''SELECT Name FROM Artists ORDER BY TwitterFollowers DESC'''
 		results = cur.execute(statement)
