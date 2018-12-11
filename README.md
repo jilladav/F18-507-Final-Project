@@ -132,3 +132,8 @@ example input:
 
 songs artist=Adele,metric=playcount
 
+#### remake tables
+A user can also remake tables and repopulate the database with:
+
+remake tables
+
