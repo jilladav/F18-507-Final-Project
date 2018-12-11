@@ -13,8 +13,6 @@ class testArtistCreation(unittest.TestCase):
 		self.assertEqual(a1.followers, 0)
 		self.assertEqual(a1.popularity, 0)
 
-	#Probably should add a test with json
-
 class testSongCreation(unittest.TestCase):
 	
 	def testConstructor(self):
@@ -28,6 +26,36 @@ class testSongCreation(unittest.TestCase):
 		self.assertEqual(s1.tags, [])
 		self.assertEqual(s1.listeners, 0)
 		self.assertEqual(s1.playcount, 0)
+
+class testDatabase(unittest.TestCase):
+	def testArtistTable(self):
+		conn = sqlite3.connect(DBNAME)
+		cur = conn.cursor()
+
+		statement = '''SELECT Name FROM Artists'''
+		results = cur.execute(statement)
+		result_list = results.fetchall()
+		self.assertIn(('Katy Perry',), result_list)
+		self.assertEqual(len(result_list), 100)
+
+		statement = '''SELECT Name FROM Artists ORDER BY TwitterFollowers DESC'''
+		results = cur.execute(statement)
+		result_list = results.fetchall()
+		self.assertEqual(('Katy Perry',), result_list[0])
+
+		conn.close()
+
+	def testSongTable(self):
+		conn = sqlite3.connect(DBNAME)
+		cur = conn.cursor()
+
+		statement = '''SELECT Name FROM Songs'''
+		results = cur.execute(statement)
+		result_list = results.fetchall()
+		self.assertIn(('Crazy In Love',), result_list)
+		self.assertGreater(len(result_list), 3000)
+
+		conn.close()
 
 class testQueries(unittest.TestCase):
 	
