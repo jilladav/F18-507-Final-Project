@@ -62,13 +62,13 @@ class Artist:
 				json = results[x]
 				song = Song(json=json)
 				songs.append(song)
-				#update_songs(song)
+				update_songs(song)
 		else:
 			for x in range(0,len(results)):
 				json = results[x]
 				song = Song(json=json)
 				songs.append(song)
-				#update_songs(song)
+				update_songs(song)
 		if len(songs) < 5:
 			x = len(songs)
 			for item in range(x,5):
@@ -77,7 +77,7 @@ class Artist:
 		for json in results[5:]:
 				song = Song(json=json)
 				songs.append(song)
-				#update_songs(song)
+				update_songs(song)
 
 		for song in songs:
 			song_names.append(song.name)
@@ -89,7 +89,7 @@ class Artist:
 			if json['name'] not in song_names:
 				song = Song(json=json)
 				songs.append(song)
-				#update_songs(song)
+				update_songs(song)
 
 		return songs
 
@@ -255,11 +255,15 @@ def update_songs(song):
 	conn = sqlite3.connect(DBNAME)
 	cur = conn.cursor()
 	if len(song.tags) < 5:
-		statement = "INSERT OR IGNORE INTO 'Songs' (Id, Name, ArtistId, Popularity, ReleaseDate, Listeners, PlayCount, Tag1, Tag2, Tag3, Tag4, Tag5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		statement = '''INSERT OR IGNORE INTO 'Songs' 
+		(Id, Name, ArtistId, Popularity, ReleaseDate, Listeners, PlayCount, Tag1, Tag2, Tag3, Tag4, Tag5) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
 		cur.execute(statement, (song.id, song.name, song.artist, song.popularity, song.release, song.listeners, song.playcount, 'NULL', 'NULL', 'NULL', 'NULL', 'NULL'))
 
 	else:
-		statement = "INSERT OR IGNORE INTO 'Songs' (Id, Name, ArtistId, Popularity, ReleaseDate, Listeners, PlayCount, Tag1, Tag2, Tag3, Tag4, Tag5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		statement = '''INSERT OR IGNORE INTO 'Songs' 
+		(Id, Name, ArtistId, Popularity, ReleaseDate, Listeners, PlayCount, Tag1, Tag2, Tag3, Tag4, Tag5) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
 		cur.execute(statement, (song.id, song.name, song.artist, song.popularity, song.release, song.listeners, song.playcount, song.tags[0], song.tags[1], song.tags[2], song.tags[3], song.tags[4]))
 
 	conn.commit()
@@ -273,7 +277,6 @@ def connect_songs_artists(artist):
 	statement = "UPDATE Songs SET ArtistId = ? WHERE ArtistId = ?"
 	cur.execute(statement,(artist_id, artist.name))
 
-	#I feel like there's a cleaner way to do this...
 	for song in artist.top_songs:
 		if song != None:
 			try:
@@ -473,31 +476,47 @@ def make_request_using_cache_last_fm(baseurl, params):
 		return CACHE_DICTION_LAST_FM[unique_ident]
 
 def search_for_artist(name):
-	'''try:
+	try:
 		conn = sqlite3.connect(DBNAME)
         #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
 		conn.text_factory = str
 		cur = conn.cursor()
 	except:
-		print("Could not connect to database.")'''
+		print("Could not connect to database.")
 	
 	artist = make_request_using_cache_spotify(name)
-	artist_object = Artist(json=artist)
+	
+	#artist_object = Artist(json=artist)
 
-	'''statement = "SELECT Id from ARTISTS"
+	statement = "SELECT Id from ARTISTS"
 	cur.execute(statement)
-
 	id_list = []
 	lst = cur.fetchall()
 	for row in lst:
 		id_list.append(row[0])
 
-	if artist_object.id != 0 and artist_object.id not in id_list:
+	'''if artist_object.id != 0 and artist_object.id not in id_list:
 		update_artists(artist_object)
-		connect_songs_artists(artist_object)
+		connect_songs_artists(artist_object)'''
 
 	conn.commit()
-	conn.close()'''
+	conn.close()
+
+	if artist['id'] != 0 and artist['id'] not in id_list:
+		artist_object = Artist(json=artist)
+		update_artists(artist_object)
+		connect_songs_artists(artist_object)
+	else:
+		artist_object = "Already in database."
+
+	'''
+	artist = make_request_using_cache_spotify(name)
+	id_list = []
+	lst = cur.fetchall()
+	for row in lst:
+	id_list.append(row[0])
+
+	'''
 
 	return artist_object
 
@@ -524,7 +543,7 @@ def query_top_songs(name, metric="spotify"):
 
 	metric=metric
 
-	#artist = search_for_artist(name)
+	artist = search_for_artist(name)
 
 	statement = '''SELECT Artists.Id FROM Artists WHERE Artists.Name = ?'''
 	cur.execute(statement,(name,))
@@ -567,7 +586,7 @@ def query_release_dates(name, year1, year2, metric="spotify"):
 	except:
 		print("Could not connect to database.")
 
-	#artist = search_for_artist(name)
+	artist = search_for_artist(name)
 
 	metric=metric
 
@@ -648,7 +667,7 @@ def query_tags(name):
 	except:
 		print("Could not connect to database.")
 
-	#artist = search_for_artist(name)
+	artist = search_for_artist(name)
 
 	statement = '''SELECT Artists.Id FROM Artists WHERE Artists.Name = ?'''
 	cur.execute(statement,(name,))
@@ -741,7 +760,7 @@ def query_related_artists(name,metric="spotify"):
 	artist_follower_dict = {}
 	name_list = []
 
-	#artist_obj = search_for_artist(name)
+	artist_obj = search_for_artist(name)
 
 	statement = '''SELECT Artists.Id, Artists.Name, Artists.Popularity, Artists.TwitterFollowers FROM Artists WHERE Artists.Name = ?'''
 	cur.execute(statement,(name,))
@@ -789,6 +808,9 @@ def query_comparisons(name1,name2,metric="spotify"):
 		print("Could not connect to database.")
 
 	metric=metric
+
+	artist1 = search_for_artist(name1)
+	artist1 = search_for_artist(name2)
 
 	artist1_dict = {}
 	artist2_dict = {}
@@ -865,7 +887,7 @@ def graph_song_popularity(pop_dict, list_dict, play_dict, name_list, artist_name
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='song-popularity')
 
 	elif metric == "listeners":
 		trace1 = go.Bar(
@@ -914,7 +936,7 @@ def graph_song_popularity(pop_dict, list_dict, play_dict, name_list, artist_name
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='song-popularity')
 
 	elif metric == "playcount":
 		trace1 = go.Bar(
@@ -963,7 +985,7 @@ def graph_song_popularity(pop_dict, list_dict, play_dict, name_list, artist_name
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='song-popularity')
 
 def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1, year2, name, metric="spotify"):
 
@@ -979,7 +1001,7 @@ def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1
 		data = [trace1]
 
 		layout = go.Layout(
-			title = ('Popularity of songs from ' + str(year1) + " and " + str(year2) + " for " + name),
+			title = ('Average Spotify Popularity of songs released in ' + str(year1) + " and " + str(year2) + " for " + name),
 	    	autosize=False,
 	    	width=700,
 	    	height=700,
@@ -992,7 +1014,7 @@ def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='song popularity')
+		py.plot(fig, filename='year-popularity')
 
 	elif metric == "listeners":
 		trace1 = go.Bar(
@@ -1003,7 +1025,7 @@ def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1
 		data = [trace1]
 
 		layout = go.Layout(
-			title = ('Popularity of songs from ' + str(year1) + " and " + str(year2) + " for " + name),
+			title = ('Average last.fm Listeners of songs released in ' + str(year1) + " and " + str(year2) + " for " + name),
 	    	autosize=False,
 	    	width=700,
 	    	height=700,
@@ -1016,7 +1038,7 @@ def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='song popularity')
+		py.plot(fig, filename='year-popularity')
 
 	elif metric == "playcount":
 		trace1 = go.Bar(
@@ -1027,7 +1049,7 @@ def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1
 		data = [trace1]
 
 		layout = go.Layout(
-			title = ('Popularity of songs from ' + str(year1) + " and " + str(year2) + " for " + name),
+			title = ('Average last.fm Playcount released in ' + str(year1) + " and " + str(year2) + " for " + name),
 		    autosize=False,
 		    width=700,
 		    height=700,
@@ -1040,7 +1062,7 @@ def graph_year_popularity(popularity_dict, listeners_dict, playcount_dict, year1
 		   )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='song popularity')
+		py.plot(fig, filename='year-popularity')
 
 def graph_tags(tag_dict,name):
 
@@ -1070,7 +1092,6 @@ def graph_tags(tag_dict,name):
 	fig = go.Figure(data=data, layout=layout)
 	py.plot(fig, filename='tags')
 
-#Gonna need to fix this lol
 def graph_related_artists(artist_pop_dict, artist_follower_dict, name_list, metric):
 
 	if metric == "spotify":
@@ -1121,7 +1142,7 @@ def graph_related_artists(artist_pop_dict, artist_follower_dict, name_list, metr
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='related artists')
 
 	elif metric == "twitter":
 		
@@ -1172,9 +1193,10 @@ def graph_related_artists(artist_pop_dict, artist_follower_dict, name_list, metr
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='related artists')
 
 def graph_comparison(artist1_dict,artist2_dict,metric):
+	
 	if metric == "spotify":
 		trace1 = go.Bar(
 	    x=['Spotify Popularity'],
@@ -1190,6 +1212,7 @@ def graph_comparison(artist1_dict,artist2_dict,metric):
 
 		data = [trace1, trace2]
 		layout = go.Layout(
+			title = ('Comparison of Spotify Popularity for ' + artist1_dict['name'] + ' and ' + artist2_dict['name']),
 			barmode='group',
 	    	autosize=False,
 	    	width=700,
@@ -1203,7 +1226,7 @@ def graph_comparison(artist1_dict,artist2_dict,metric):
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='comparison')
 
 
 	elif metric == "twitter":
@@ -1222,6 +1245,7 @@ def graph_comparison(artist1_dict,artist2_dict,metric):
 
 		data = [trace1, trace2]
 		layout = go.Layout(
+			title = ('Comparison of Twitter Followers for ' + artist1_dict['name'] + ' and ' + artist2_dict['name']),
 			barmode='group',
 	    	autosize=False,
 	    	width=700,
@@ -1235,7 +1259,76 @@ def graph_comparison(artist1_dict,artist2_dict,metric):
 	    )
 
 		fig = go.Figure(data=data, layout=layout)
-		py.plot(fig, filename='grouped-bar')
+		py.plot(fig, filename='comparison')
+
+def get_top_artists():
+	base_url = 'http://ws.audioscrobbler.com/2.0/'
+	params = {}
+	params['limit'] = 100
+	params['method'] = "chart.getTopArtists"
+	params['page'] = 1
+	params['format'] = "json"
+	params['api_key'] = last_fm_token
+	result = make_request_using_cache_last_fm(base_url,params)	
+
+	for artist in result['artists']['artist']:
+		search_for_artist(artist['name'])
+		print("Added " + artist['name'] + " to database")
+
+	base_url = 'http://ws.audioscrobbler.com/2.0/'
+	params = {}
+	params['limit'] = 100
+	params['method'] = "chart.getTopArtists"
+	params['page'] = 2
+	params['format'] = "json"
+	params['api_key'] = last_fm_token
+	result = make_request_using_cache_last_fm(base_url,params)	
+
+	for artist in result['artists']['artist']:
+		try:
+			search_for_artist(artist['name'])
+			print("Added " + artist['name'] + " to database")
+		except:
+			continue
+
+def eliminate_bad_songs():
+	try:
+		conn = sqlite3.connect(DBNAME)
+        #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
+		conn.text_factory = str
+		cur = conn.cursor()
+	except:
+		print("Could not connect to database.")
+
+	statement = "SELECT ArtistId FROM Songs"
+	cur.execute(statement)
+	song_artists = cur.fetchall()
+	song_artists_ids_list = []
+	x = 0
+	for id in song_artists:
+		song_artists_ids_list.append(song_artists[x])
+		x += 1 
+
+	x = 0
+	statement = "SELECT Id FROM Artists"
+	cur.execute(statement)
+	artists_ids = cur.fetchall()
+	artists_ids_list = []
+	for id in artists_ids:
+		artists_ids_list.append(artists_ids[x])
+		x += 1
+
+	rogue_ids = []
+	for id in song_artists_ids_list:
+		if id not in artists_ids_list:
+			rogue_ids.append(id[0])
+
+	for id in rogue_ids:
+		statement = "DELETE FROM Songs WHERE ArtistId = ?"
+		cur.execute(statement,(id,))
+
+	conn.commit()
+	conn.close()
 
 def process_command(command):
 	command_split = command.split()
@@ -1244,13 +1337,13 @@ def process_command(command):
 	#tags artist=?
 	if first == "tags":
 		command = command_split[1:]
-		#new_command = ' '.join(command)
-		for word in command:
-			if "artist" in word:
-				name = word.split('=')[1]
-				query_tags(name)
-			else:
-				print("Command not recognized: " + command + ". Please try again.")
+		new_command = ' '.join(command)
+		#for word in command:
+		if "artist" in new_command:
+			name = new_command.split('=')[1]
+			query_tags(name)
+		else:
+			print("Command not recognized: " + command + ". Please try again.")
 	#compare 
 		#related artist=?
 	elif first == "compare":
@@ -1311,61 +1404,15 @@ def process_command(command):
 			elif "metric" in word:
 				metric = word.split('=')[1]
 		query_top_songs(name,metric)
+	elif first == "remake":
+		if command_split[1] == "tables":
+			create_artists()
+			create_songs()
+			get_top_artists()
+			connect_songs_artists()
+			eliminate_bad_songs()
 	else:
 		print("Command not recognized: " + command + ". Please try again.")
-
-def get_top_artists():
-	base_url = 'http://ws.audioscrobbler.com/2.0/'
-	params = {}
-	params['limit'] = 100
-	params['method'] = "chart.getTopArtists"
-	params['page'] = 2
-	params['format'] = "json"
-	params['api_key'] = last_fm_token
-	result = make_request_using_cache_last_fm(base_url,params)	
-
-	for artist in result['artists']['artist']:
-		search_for_artist(artist['name'])
-		print("Added " + artist['name'] + " to database")
-
-'''def eliminate_bad_songs():
-	try:
-		conn = sqlite3.connect(DBNAME)
-        #From https://stackoverflow.com/questions/3425320/sqlite3-programmingerror-you-must-not-use-8-bit-bytestrings-unless-you-use-a-te
-		conn.text_factory = str
-		cur = conn.cursor()
-	except:
-		print("Could not connect to database.")
-
-	statement = "SELECT ArtistId FROM Songs"
-	cur.execute(statement)
-	song_artists = cur.fetchall()
-	song_artists_ids_list = []
-	x = 0
-	for id in song_artists:
-		song_artists_ids_list.append(song_artists[x])
-		x += 1 
-
-	x = 0
-	statement = "SELECT Id FROM Artists"
-	cur.execute(statement)
-	artists_ids = cur.fetchall()
-	artists_ids_list = []
-	for id in artists_ids:
-		artists_ids_list.append(artists_ids[x])
-		x += 1
-
-	rogue_ids = []
-	for id in song_artists_ids_list:
-		if id not in artists_ids_list:
-			rogue_ids.append(id[0])
-
-	for id in rogue_ids:
-		statement = "DELETE FROM Songs WHERE ArtistId = ?"
-		cur.execute(statement,(id,))
-
-	conn.commit()
-	conn.close()'''
 
 def interactive_prompt():
 	response = ''
