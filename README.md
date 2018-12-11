@@ -10,13 +10,13 @@ Twitter API - https://developer.twitter.com/en/docs.html
 
 In order to run the program, you need to have a file called secret_data.py that includes the following:
 
-Consumer key, consumer access, access key, and access secret for the Twitter API.
+CONSUMER_KEY, CONSUMER_ACCESS, ACCESS_KEY, and ACCESS_SECRET secret for the Twitter API.
 
-Client ID and client secret for the Spotify API.
+client_id and client_secret for the Spotify API.
 
-Token and secret for the last.fm API.
+last_fm_token and last_fm_secret for the last.fm API.
 
-The user also needs to create an account on plotly.com.
+PLOTLY_USERNAME and PLOTLY_API_KEY. See https://plot.ly/python/getting-started/ for details.
 
 ## Description
 All of the code is contained in one main file, music.py, and then one unittest file, music_test.py.
