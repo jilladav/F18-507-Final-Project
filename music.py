@@ -22,6 +22,11 @@ access_secret = secret_data.ACCESS_SECRET
 last_fm_token = secret_data.last_fm_token
 last_fm_secret = secret_data.last_fm_secret
 
+PLOTLY_USERNAME = secret_data.PLOTLY_USERNAME
+PLOTLY_API_KEY = secret_data.PLOTLY_API_KEY
+
+plotly.tools.set_credentials_file(username=PLOTLY_USERNAME, api_key=PLOTLY_API_KEY)
+
 url = 'https://api.twitter.com/1.1/account/verify_credentials.json'
 auth = OAuth1(consumer_key, consumer_secret, access_token, access_secret)
 requests.get(url, auth=auth)
