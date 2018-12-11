@@ -16,6 +16,8 @@ Client ID and client secret for the Spotify API.
 
 Token and secret for the last.fm API.
 
+The user also needs to create an account on plotly.com.
+
 ## Description
 All of the code is contained in one main file, music.py, and then one unittest file, music_test.py.
 
