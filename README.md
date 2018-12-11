@@ -137,5 +137,5 @@ A user can also remake tables and repopulate the database with:
 
 remake tables
 
-Please note that this can take a long time to do because of the large number of API calls that have to be made. If the database is not downloaded with the rest of the files, this should be run first.
+Please note that this can take a long time to do because of the large number of API calls that have to be made. If the database is not downloaded with the rest of the files, this should be run first, or you can just start running other commands which will populate the database as each individual artist is called.
 
