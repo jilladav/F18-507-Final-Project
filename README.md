@@ -1,4 +1,4 @@
-##Data Sources:
+## Data Sources:
 
 Spotify API - https://developer.spotify.com/documentation/web-api/
 last.fm API - https://www.last.fm/api
@@ -48,34 +48,58 @@ There are four main user inputs.
 For each, any parameters that need to be specified (e.g. a specific artist or metric) must be separated by commas.
 
 tags
+
 Graphs the most popular tags for an artist.
+
 example input:
+
 tags artist=Adele
 
 compare
+
 Compare an artist to related artists or specify an artist to compare them to, and by what metric.
+
 Metric options:
+
 spotify - Spotify popularity (default)
+
 twitter - Twitter followers
+
 example input:
+
 compare related artist=Adele
+
 compare artist1=Adele,artist2=Katy Perry,metric=twitter
 
 years
+
 Compare the popularity of an artist's songs from certain years and specify by what metric.
+
 Metric options:
+
 spotify - average Spotify popularity (default)
+
 listeners - average number of last.fm listeners
+
 playcount - average last.fm playcount
+
 example input:
+
 years artist=Adele,year1=2016,year2=2011,metric=listeners
 
 songs
+
 Compare the popularity of an artist's current top Spotify songs and specify by what metric.
+
 Metric options:
+
 spotify - Spotify popularity (default)
+
 listeners - number of last.fm listeners
+
 playcount - last.fm playcount
+
 example input:
+
 songs artist=Adele,metric=playcount
 
