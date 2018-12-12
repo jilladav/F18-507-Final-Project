@@ -31,7 +31,7 @@ query_top_songs(): gets the top 5 Spotify songs for an artist from the database
 
 query_release_dates(): gets the average popularity, playcount, and listeners for songs by an artist from the specified years
 
-query_tags: gets the top 5 tags from last.fm based on an artist's songs
+query_tags(): gets the top 5 tags from last.fm based on an artist's songs
 
 query_related_artists(): gets the related artists for an artist from the database
 
