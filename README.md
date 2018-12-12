@@ -84,7 +84,7 @@ Compare an artist to related artists or specify an artist to compare them to, an
 
 Metric options:
 
-spotify - Spotify popularity (default)
+spotify - Spotify popularity (default if nothing is specified)
 
 twitter - Twitter followers
 
@@ -103,7 +103,7 @@ Compare the popularity of an artist's songs from certain years and specify by wh
 
 Metric options:
 
-spotify - average Spotify popularity (default)
+spotify - average Spotify popularity (default if nothing is specified)
 
 listeners - average number of last.fm listeners
 
@@ -122,7 +122,7 @@ Compare the popularity of an artist's current top Spotify songs and specify by w
 
 Metric options:
 
-spotify - Spotify popularity (default)
+spotify - Spotify popularity (default if nothing is specified)
 
 listeners - number of last.fm listeners
 
