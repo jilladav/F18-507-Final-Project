@@ -65,7 +65,7 @@ str(): returns the song's name
 #### User Guide
 There are four main user inputs.
 
-For each, any parameters that need to be specified (e.g. a specific artist or metric) must be separated by commas.
+For each, any parameters that need to be specified (e.g. a specific artist or metric) must be separated by commas. Please note that commands are case sensitive, including when you specify the name of an artist or metric.
 
 #### tags
 
