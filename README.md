@@ -10,7 +10,7 @@ Twitter API - https://developer.twitter.com/en/docs.html
 
 In order to run the program, you need to have a file called secret_data.py that includes the following:
 
-CONSUMER_KEY, CONSUMER_ACCESS, ACCESS_KEY, and ACCESS_SECRET secret for the Twitter API.
+CONSUMER_KEY, CONSUMER_ACCESS, ACCESS_KEY, and ACCESS_SECRET for the Twitter API.
 
 client_id and client_secret for the Spotify API.
 
