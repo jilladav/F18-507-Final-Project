@@ -56,6 +56,8 @@ Song:
 
 Contains a song's name, artist, Spotify popularity, release date, top 5 tags from last.fm, last.fm listeners, and last.fm playcount
 
+class methods:
+
 process_json_dict(): processes a json dictionary to update information about the song
 
 get_last_fm_data(): gets last.fm data about the song and updates it
